@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Medallion Architecture — Operations Checklist</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f7f6f2;
+    --surface: #ffffff;
+    --border: #e2e0d8;
+    --border-mid: #ccc9be;
+    --text: #1a1917;
+    --text-mid: #6b6860;
+    --text-dim: #9e9b93;
+    --bronze-bg: #fdf3e5;
+    --bronze-badge: #f9c96a;
+    --bronze-badge-text: #7a4a00;
+    --bronze-bar: #f9c96a;
+    --silver-bg: #edf4f8;
+    --silver-badge: #a8cbde;
+    --silver-badge-text: #14404f;
+    --silver-bar: #a8cbde;
+    --gold-bg: #f3f7ee;
+    --gold-badge: #9dc77a;
+    --gold-badge-text: #2a4a18;
+    --gold-bar: #9dc77a;
+    --tag-always-bg: #fde8e8;
+    --tag-always-text: #b91c1c;
+    --tag-common-bg: #fef3c7;
+    --tag-common-text: #92400e;
+    --tag-optional-bg: #f1efea;
+    --tag-optional-text: #6b6860;
+    --check-border: #ccc9be;
+    --check-done-bg: #dcfce7;
+    --check-done-border: #86efac;
+    --check-done-text: #15803d;
+    --font-sans: 'IBM Plex Sans', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #18181b;
+      --surface: #1f1f23;
+      --border: #2e2e33;
+      --border-mid: #3a3a40;
+      --text: #f0efe9;
+      --text-mid: #9e9b93;
+      --text-dim: #6b6860;
+      --bronze-bg: #2a2215;
+      --silver-bg: #151f25;
+      --gold-bg: #161f11;
+      --tag-always-bg: #3b1515;
+      --tag-always-text: #fca5a5;
+      --tag-common-bg: #3b2e0e;
+      --tag-common-text: #fcd34d;
+      --tag-optional-bg: #25252a;
+      --tag-optional-text: #9e9b93;
+      --check-border: #3a3a40;
+      --check-done-bg: #14291e;
+      --check-done-border: #166534;
+      --check-done-text: #86efac;
+    }
+  }
+
+  html { font-size: 14px; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 32px 16px 64px;
+  }
+
+  .container { max-width: 780px; margin: 0 auto; }
+
+  header { margin-bottom: 28px; }
+  .header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+  h1 { font-family: var(--font-mono); font-size: 18px; font-weight: 500; color: var(--text); letter-spacing: -0.01em; }
+  .subtitle { font-size: 13px; color: var(--text-mid); margin-top: 4px; }
+
+  .legend { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-mid); }
+
+  .reset-btn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 0.5px solid var(--border-mid);
+    background: transparent;
+    color: var(--text-mid);
+    cursor: pointer;
+    transition: background .15s, color .15s;
+    white-space: nowrap;
+  }
+  .reset-btn:hover { background: var(--border); color: var(--text); }
+
+  /* Layer cards */
+  .layer { margin-bottom: 20px; border: 0.5px solid var(--border-mid); border-radius: 10px; overflow: hidden; background: var(--surface); }
+
+  .layer-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 10px; font-weight: 500;
+    padding: 3px 10px; border-radius: 20px;
+    flex-shrink: 0;
+  }
+  .layer-name { font-size: 14px; font-weight: 500; }
+  .layer-sub { margin-left: auto; font-size: 12px; color: var(--text-dim); }
+
+  /* Progress bar */
+  .layer-progress {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 16px;
+    background: var(--bg);
+    border-bottom: 0.5px solid var(--border);
+  }
+  .prog-label { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); min-width: 48px; }
+  .prog-wrap { flex: 1; height: 3px; background: var(--border); border-radius: 2px; }
+  .prog-fill { height: 3px; border-radius: 2px; transition: width .3s ease; }
+  .prog-pct { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); min-width: 32px; text-align: right; }
+
+  /* Groups */
+  .group { border-bottom: 0.5px solid var(--border); }
+  .group:last-child { border-bottom: none; }
+  .group-title {
+    font-family: var(--font-mono);
+    font-size: 10px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .08em;
+    color: var(--text-dim);
+    padding: 8px 16px 5px;
+    background: var(--bg);
+    border-bottom: 0.5px solid var(--border);
+  }
+
+  /* Items */
+  .item {
+    display: flex; align-items: flex-start; gap: 11px;
+    padding: 9px 16px;
+    cursor: pointer;
+    transition: background .1s;
+    border-bottom: 0.5px solid var(--border);
+    user-select: none;
+  }
+  .item:last-child { border-bottom: none; }
+  .item:hover { background: var(--bg); }
+  .item.checked { opacity: .45; }
+  .item.checked .item-label { text-decoration: line-through; }
+
+  .cb {
+    width: 15px; height: 15px;
+    border: 0.5px solid var(--check-border);
+    border-radius: 4px;
+    flex-shrink: 0; margin-top: 2px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s, border-color .15s;
+  }
+  .item.checked .cb {
+    background: var(--check-done-bg);
+    border-color: var(--check-done-border);
+  }
+  .item.checked .cb::after {
+    content: '';
+    display: block;
+    width: 8px; height: 4px;
+    border-left: 1.5px solid var(--check-done-text);
+    border-bottom: 1.5px solid var(--check-done-text);
+    transform: rotate(-45deg) translateY(-1px);
+  }
+
+  .item-body { flex: 1; }
+  .item-label { font-size: 13px; color: var(--text); line-height: 1.5; }
+  .item-note { font-size: 11px; color: var(--text-dim); margin-top: 2px; font-family: var(--font-mono); line-height: 1.5; }
+
+  /* Tags */
+  .tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 9px; font-weight: 500;
+    padding: 2px 7px; border-radius: 10px;
+    margin-right: 5px; vertical-align: middle;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .tag-always { background: var(--tag-always-bg); color: var(--tag-always-text); }
+  .tag-common { background: var(--tag-common-bg); color: var(--tag-common-text); }
+  .tag-optional { background: var(--tag-optional-bg); color: var(--tag-optional-text); }
+
+  /* Footer */
+  footer { margin-top: 28px; font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); text-align: center; }
+
+  /* Overall summary bar */
+  .summary { display: flex; gap: 16px; margin-bottom: 20px; }
+  .summary-card {
+    flex: 1; padding: 10px 14px;
+    border: 0.5px solid var(--border);
+    border-radius: 8px; background: var(--surface);
+  }
+  .summary-card .sc-num { font-family: var(--font-mono); font-size: 22px; font-weight: 500; color: var(--text); }
+  .summary-card .sc-label { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="header-top">
+      <div>
+        <h1>Medallion Architecture</h1>
+        <div class="subtitle">Operations checklist — Bronze → Silver → Gold</div>
+      </div>
+      <button class="reset-btn" onclick="resetAll()">Reset all</button>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><span class="tag tag-always">always</span> every project</div>
+      <div class="legend-item"><span class="tag tag-common">common</span> most projects</div>
+      <div class="legend-item"><span class="tag tag-optional">optional</span> source-dependent</div>
+    </div>
+  </header>
+
+  <div class="summary">
+    <div class="summary-card">
+      <div class="sc-num" id="total-done">0</div>
+      <div class="sc-label">completed</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-num" id="total-left">35</div>
+      <div class="sc-label">remaining</div>
+    </div>
+    <div class="summary-card">
+      <div class="sc-num" id="total-pct">0%</div>
+      <div class="sc-label">overall progress</div>
+    </div>
+  </div>
+
+  <!-- ── BRONZE ── -->
+  <div class="layer" id="layer-bronze">
+    <div class="layer-head" style="background:var(--bronze-bg);">
+      <span class="badge" style="background:var(--bronze-badge);color:var(--bronze-badge-text);">Bronze</span>
+      <span class="layer-name">Raw ingestion</span>
+      <span class="layer-sub">Land it, don't change it</span>
+    </div>
+    <div class="layer-progress">
+      <span class="prog-label" id="prog-label-bronze">0 / 10</span>
+      <div class="prog-wrap"><div class="prog-fill" id="prog-bronze" style="width:0%;background:var(--bronze-bar);"></div></div>
+      <span class="prog-pct" id="prog-pct-bronze">0%</span>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Ingestion</div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Store raw data exactly as received — no value transformations</div><div class="item-note">Preserve source format: JSON blobs, CSV rows, API payloads as-is</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Add ingestion metadata columns</div><div class="item-note">_ingested_at (timestamp), _source_file or _source_system, _batch_id</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Choose append-only or upsert strategy — document it</div><div class="item-note">Append-only = full history; upsert = idempotent re-runs. Pick one.</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-common">common</span>Store as Parquet or Delta/Iceberg with schema enforcement off</div><div class="item-note">Allows schema drift from source without breaking the pipeline</div></div></div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Observability</div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Log row counts per batch and alert on zero-row loads</div><div class="item-note">Silent empty loads are the hardest bugs to catch downstream</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-common">common</span>Record schema of each batch (column names + data types)</div><div class="item-note">Catches source-side schema changes before they break Silver</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-common">common</span>Capture file/API checksum or hash for dedup detection</div><div class="item-note">Avoid re-processing identical files sent twice by the source</div></div></div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Access &amp; retention</div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Restrict write access — only the ingestion pipeline writes here</div><div class="item-note">Prevents accidental manual edits that break reproducibility</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-common">common</span>Set a retention/archival policy (e.g. 90 days hot, then cold storage)</div><div class="item-note">Bronze grows fast — plan for storage costs from day one</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-optional">optional</span>Partition by date or source for faster downstream reads</div><div class="item-note">e.g. /bronze/orders/year=2024/month=03/</div></div></div>
+    </div>
+  </div>
+
+  <!-- ── SILVER ── -->
+  <div class="layer" id="layer-silver">
+    <div class="layer-head" style="background:var(--silver-bg);">
+      <span class="badge" style="background:var(--silver-badge);color:var(--silver-badge-text);">Silver</span>
+      <span class="layer-name">Cleaned &amp; conformed</span>
+      <span class="layer-sub">One trusted version of each entity</span>
+    </div>
+    <div class="layer-progress">
+      <span class="prog-label" id="prog-label-silver">0 / 14</span>
+      <div class="prog-wrap"><div class="prog-fill" id="prog-silver" style="width:0%;background:var(--silver-bar);"></div></div>
+      <span class="prog-pct" id="prog-pct-silver">0%</span>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Deduplication</div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Define the natural key for each entity and deduplicate on it</div><div class="item-note">e.g. order_id, user_id + email. Keep latest or highest-priority row.</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-common">common</span>Handle slowly changing dimensions (SCD) — decide on Type 1, 2, or 3</div><div class="item-note">Type 2 = keep history with valid_from/valid_to. Type 1 = overwrite.</div></div></div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Data type casting</div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Cast all date/datetime columns to a single standard format (ISO 8601)</div><div class="item-note">Consolidate DD/MM/YYYY, MM-DD-YY, Unix timestamps → YYYY-MM-DD</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Cast numeric strings to correct numeric types</div><div class="item-note">"59.99" → DECIMAL(10,2). Beware locale issues: "1.234,56" vs "1,234.56"</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-common">common</span>Standardise timezone — store all timestamps in UTC</div><div class="item-note">Add a separate local_tz column if the source timezone is meaningful</div></div></div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">String normalisation</div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Normalise enum / categorical values to a consistent case</div><div class="item-note">"PENDING", "Pending", "pending" → single canonical value</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-common">common</span>Trim leading/trailing whitespace on all string columns</div><div class="item-note">Common in CSV exports — "Alice " ≠ "Alice" in joins</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-common">common</span>Map free-text to a controlled vocabulary where needed</div><div class="item-note">e.g. country name → ISO 3166 code, currency name → ISO 4217</div></div></div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Null &amp; validity handling</div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Replace placeholder nulls with proper NULLs</div><div class="item-note">"N/A", "NULL", "-1", "" → NULL. Document each substitution.</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Apply range/domain validation and quarantine invalid rows</div><div class="item-note">Negative amounts, future birthdates, unknown enum values → quarantine table</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-common">common</span>Check referential integrity (FK lookups) and flag orphan rows</div><div class="item-note">Order rows pointing to non-existent customer_id → log + quarantine</div></div></div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Lineage &amp; metadata</div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Add _updated_at and _source_bronze_id for row-level lineage</div><div class="item-note">Enables tracing any Silver row back to its Bronze origin</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-common">common</span>Write rejected rows to a separate bad-data table with reason codes</div><div class="item-note">Never silently drop bad rows — make them visible and fixable</div></div></div>
+    </div>
+  </div>
+
+  <!-- ── GOLD ── -->
+  <div class="layer" id="layer-gold">
+    <div class="layer-head" style="background:var(--gold-bg);">
+      <span class="badge" style="background:var(--gold-badge);color:var(--gold-badge-text);">Gold</span>
+      <span class="layer-name">Business-ready</span>
+      <span class="layer-sub">Optimised for consumption</span>
+    </div>
+    <div class="layer-progress">
+      <span class="prog-label" id="prog-label-gold">0 / 11</span>
+      <div class="prog-wrap"><div class="prog-fill" id="prog-gold" style="width:0%;background:var(--gold-bar);"></div></div>
+      <span class="prog-pct" id="prog-pct-gold">0%</span>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Joins &amp; enrichment</div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Join fact tables to dimension tables — no raw IDs in Gold</div><div class="item-note">customer_id → customer_name, country. product_id → product_name, category.</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-common">common</span>Apply currency / unit conversion to a single standard</div><div class="item-note">All amounts in one currency, all weights in kg, all distances in km</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-optional">optional</span>Enrich with third-party data (geo IP lookup, firmographic data, etc.)</div><div class="item-note">Avoid in Silver — enrichment APIs can be slow or costly</div></div></div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Aggregation &amp; derived metrics</div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Pre-aggregate to the grain your consumers actually query</div><div class="item-note">Daily sales per store, monthly revenue per customer, etc. Match BI needs.</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Compute and name business metrics explicitly</div><div class="item-note">GMV, LTV, churn rate, conversion rate — with agreed definitions in a data dictionary</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-common">common</span>Add time-intelligence columns: day_of_week, is_weekend, fiscal_quarter</div><div class="item-note">Prevents analysts from re-deriving these inconsistently across reports</div></div></div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Data quality for consumers</div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-always">always</span>Apply row-level security or column masking for sensitive fields</div><div class="item-note">PII (email, phone, SSN) should be masked or excluded by default</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-common">common</span>Add data freshness metadata (_as_of_date, _pipeline_run_id)</div><div class="item-note">Lets dashboards show "data as of 08:00 UTC" instead of silently stale</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-common">common</span>Run automated DQ tests before publishing (row count, nulls, ranges)</div><div class="item-note">Block the pipeline if KPIs drop more than X% vs prior run</div></div></div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">Performance &amp; access</div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-common">common</span>Partition and/or cluster on the most common filter columns</div><div class="item-note">Partition by date if time-series; cluster by customer_id or region</div></div></div>
+      <div class="item" onclick="toggle(this)"><div class="cb"></div><div class="item-body"><div class="item-label"><span class="tag tag-optional">optional</span>Materialise as view vs table based on query frequency</div><div class="item-note">High-frequency queries → materialised table. Low-frequency → view is fine.</div></div></div>
+    </div>
+  </div>
+
+  <footer>35 operations across 3 layers · medallion architecture checklist</footer>
+</div>
+
+<script>
+  const totals = { bronze: 10, silver: 14, gold: 11 };
+  const counts = { bronze: 0, silver: 0, gold: 0 };
+  const TOTAL = 35;
+
+  function getLayer(el) {
+    const s = el.closest('.layer');
+    if (!s) return null;
+    return s.id.replace('layer-', '');
+  }
+
+  function toggle(el) {
+    const layer = getLayer(el);
+    const wasChecked = el.classList.contains('checked');
+    el.classList.toggle('checked');
+    if (layer) {
+      counts[layer] += wasChecked ? -1 : 1;
+      updateProgress(layer);
+      updateSummary();
+    }
+  }
+
+  function updateProgress(layer) {
+    const c = counts[layer], t = totals[layer];
+    const pct = Math.round(c / t * 100);
+    document.getElementById('prog-' + layer).style.width = pct + '%';
+    document.getElementById('prog-label-' + layer).textContent = c + ' / ' + t;
+    document.getElementById('prog-pct-' + layer).textContent = pct + '%';
+  }
+
+  function updateSummary() {
+    const done = counts.bronze + counts.silver + counts.gold;
+    const left = TOTAL - done;
+    const pct = Math.round(done / TOTAL * 100);
+    document.getElementById('total-done').textContent = done;
+    document.getElementById('total-left').textContent = left;
+    document.getElementById('total-pct').textContent = pct + '%';
+  }
+
+  function resetAll() {
+    document.querySelectorAll('.item.checked').forEach(el => el.classList.remove('checked'));
+    ['bronze', 'silver', 'gold'].forEach(l => { counts[l] = 0; updateProgress(l); });
+    updateSummary();
+  }
+</script>
+</body>
+</html>
