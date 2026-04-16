@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LDLP Solution Architecture — ms/sl/dp</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f5f4f0;
+    color: #1a1a18;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 10px 24px;
+    background: #fff;
+    border-bottom: 1px solid #e0dfd8;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  header img.logo { height: 44px; width: auto; display: block; }
+  header .divider { width: 1px; height: 32px; background: #e0dfd8; flex-shrink: 0; }
+  header .header-meta { display: flex; flex-direction: column; gap: 2px; }
+  header h1 { font-size: 13px; font-weight: 600; color: #1a1a18; }
+  header span { font-size: 11px; color: #888; font-weight: 400; }
+
+  .workspace {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Diagram panel ── */
+  .diagram-panel {
+    flex: 1;
+    overflow: auto;
+    padding: 24px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  svg {
+    max-width: 680px;
+    width: 100%;
+    flex-shrink: 0;
+  }
+
+  /* ── Detail panel ── */
+  .detail-panel {
+    width: 320px;
+    min-width: 320px;
+    background: #fff;
+    border-left: 1px solid #e0dfd8;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s ease;
+  }
+  .detail-panel.hidden { display: none; }
+
+  .detail-header {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid #eeedea;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .detail-header h2 { font-size: 14px; font-weight: 600; line-height: 1.4; flex: 1; }
+  .detail-tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    margin-top: 2px;
+  }
+
+  .tag-raw      { background: #FAEEDA; color: #633806; }
+  .tag-landing  { background: #E1F5EE; color: #085041; }
+  .tag-cleaned  { background: #EEEDFE; color: #26215C; }
+  .tag-curated  { background: #E6F1FB; color: #042C53; }
+  .tag-source   { background: #F1EFE8; color: #2C2C2A; }
+  .tag-serving  { background: #E1F5EE; color: #085041; }
+  .tag-alert    { background: #FAECE7; color: #4A1B0C; }
+  .tag-mdm      { background: #FAEEDA; color: #633806; }
+
+  .close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #888;
+    font-size: 18px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
+  .close-btn:hover { background: #f1efe8; color: #333; }
+
+  .detail-body {
+    padding: 16px 18px;
+    overflow-y: auto;
+    flex: 1;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #3a3a38;
+  }
+
+  .detail-body h3 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #888;
+    margin: 14px 0 6px;
+  }
+  .detail-body h3:first-child { margin-top: 0; }
+
+  .detail-body p { margin-bottom: 8px; color: #444; }
+
+  .detail-body ul {
+    padding-left: 16px;
+    margin-bottom: 8px;
+    color: #444;
+  }
+  .detail-body ul li { margin-bottom: 3px; }
+
+  .code-block {
+    background: #f5f4f0;
+    border: 1px solid #e0dfd8;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: "SF Mono", "Fira Code", Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.6;
+    color: #2a2a28;
+    overflow-x: auto;
+    margin-bottom: 8px;
+    white-space: pre;
+  }
+
+  .pill-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  .pill {
+    font-size: 11px;
+    background: #f1efe8;
+    border: 1px solid #dddbd3;
+    border-radius: 10px;
+    padding: 2px 8px;
+    color: #555;
+  }
+
+  .hint {
+    background: #E6F1FB;
+    border-left: 3px solid #185FA5;
+    border-radius: 0 4px 4px 0;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #0C447C;
+    margin-bottom: 8px;
+  }
+
+  .warn {
+    background: #FAEEDA;
+    border-left: 3px solid #BA7517;
+    border-radius: 0 4px 4px 0;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #633806;
+    margin-bottom: 8px;
+  }
+
+  /* ── Empty state ── */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #aaa;
+    gap: 8px;
+    padding: 24px;
+    text-align: center;
+  }
+  .empty-state svg { opacity: 0.3; }
+  .empty-state p { font-size: 13px; }
+
+  /* ── SVG node hover ── */
+  .node { cursor: pointer; }
+  .node:hover rect, .node:hover circle { opacity: 0.85; }
+  .node.active rect { stroke-width: 2 !important; filter: drop-shadow(0 0 4px rgba(0,0,0,0.15)); }
+
+  /* ── Color ramps (SVG classes) ── */
+  .c-blue   rect, .c-blue   circle { fill: #E6F1FB; stroke: #185FA5; }
+  .c-blue   .th, .c-blue   .t { fill: #0C447C; }
+  .c-blue   .ts { fill: #185FA5; }
+
+  .c-purple rect, .c-purple circle { fill: #EEEDFE; stroke: #534AB7; }
+  .c-purple .th, .c-purple .t { fill: #26215C; }
+  .c-purple .ts { fill: #3C3489; }
+
+  .c-green  rect, .c-green  circle { fill: #EAF3DE; stroke: #3B6D11; }
+  .c-green  .th, .c-green  .t { fill: #173404; }
+  .c-green  .ts { fill: #27500A; }
+
+  .c-amber  rect, .c-amber  circle { fill: #FAEEDA; stroke: #BA7517; }
+  .c-amber  .th, .c-amber  .t { fill: #412402; }
+  .c-amber  .ts { fill: #633806; }
+
+  .c-teal   rect, .c-teal   circle { fill: #E1F5EE; stroke: #0F6E56; }
+  .c-teal   .th, .c-teal   .t { fill: #04342C; }
+  .c-teal   .ts { fill: #085041; }
+
+  .c-coral  rect, .c-coral  circle { fill: #FAECE7; stroke: #993C1D; }
+  .c-coral  .th, .c-coral  .t { fill: #4A1B0C; }
+  .c-coral  .ts { fill: #712B13; }
+
+  .c-gray   rect, .c-gray   circle { fill: #F1EFE8; stroke: #5F5E5A; }
+  .c-gray   .th, .c-gray   .t { fill: #2C2C2A; }
+  .c-gray   .ts { fill: #444441; }
+
+  .box rect { fill: #F1EFE8; stroke: #5F5E5A; }
+
+  .arr { fill: none; stroke: #888780; stroke-width: 1.5; marker-end: url(#arrow); }
+  .leader { fill: none; stroke: #b4b2a9; stroke-width: 0.5; stroke-dasharray: 3 2; }
+
+  .t  { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; font-weight: 400; fill: #1a1a18; }
+  .th { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; font-weight: 600; fill: #1a1a18; }
+  .ts { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; font-weight: 400; fill: #5f5e5a; }
+
+  @media (max-width: 700px) {
+    .detail-panel { width: 100%; min-width: 0; border-left: none; border-top: 1px solid #e0dfd8; }
+    .workspace { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <img class="logo" src="data:image/png;base64,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" alt="SKY IT"/>
+  <div class="divider"></div>
+  <div class="header-meta">
+    <h1>LDLP Solution Architecture</h1>
+    <span>ms / sl / dp · Click any component for details</span>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- ── DIAGRAM ── -->
+  <div class="diagram-panel">
+  <svg viewBox="0 0 680 880" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <!-- SOURCES -->
+  <g class="node c-blue"   data-id="src-customer">   <rect x="10"  y="14" width="118" height="44" rx="8" stroke-width="0.5"/> <text class="th" x="69"  y="33" text-anchor="middle" dominant-baseline="central">Customer</text>   <text class="ts" x="69"  y="51" text-anchor="middle" dominant-baseline="central">xlsx / csv</text></g>
+  <g class="node c-purple" data-id="src-crm">         <rect x="138" y="14" width="118" height="44" rx="8" stroke-width="0.5"/> <text class="th" x="197" y="33" text-anchor="middle" dominant-baseline="central">CRM views</text>    <text class="ts" x="197" y="51" text-anchor="middle" dominant-baseline="central">Synapse views</text></g>
+  <g class="node c-green"  data-id="src-opendata">    <rect x="266" y="14" width="118" height="44" rx="8" stroke-width="0.5"/> <text class="th" x="325" y="33" text-anchor="middle" dominant-baseline="central">OpenData API</text> <text class="ts" x="325" y="51" text-anchor="middle" dominant-baseline="central">csv / xml</text></g>
+  <g class="node c-amber"  data-id="src-manual">      <rect x="394" y="14" width="118" height="44" rx="8" stroke-width="0.5"/> <text class="th" x="453" y="33" text-anchor="middle" dominant-baseline="central">Manual xlsx</text>  <text class="ts" x="453" y="51" text-anchor="middle" dominant-baseline="central">Stock, Plan, Spend</text></g>
+  <g class="node c-teal"   data-id="src-metrics">     <rect x="522" y="14" width="148" height="44" rx="8" stroke-width="0.5"/> <text class="th" x="596" y="33" text-anchor="middle" dominant-baseline="central">Prod. metrics</text> <text class="ts" x="596" y="51" text-anchor="middle" dominant-baseline="central">→ dim tables</text></g>
+
+  <!-- DLT group: boxes 1-3 (Customer, CRM, OpenData) -->
+  <line x1="69"  y1="58" x2="69"  y2="72" stroke="#b4b2a9" stroke-width="0.5"/>
+  <line x1="197" y1="58" x2="197" y2="72" stroke="#b4b2a9" stroke-width="0.5"/>
+  <line x1="325" y1="58" x2="325" y2="72" stroke="#b4b2a9" stroke-width="0.5"/>
+  <line x1="69"  y1="72" x2="325" y2="72" stroke="#b4b2a9" stroke-width="0.5"/>
+  <text class="ts" x="234" y="84" text-anchor="start" style="fill:#085041;font-weight:600">DLT</text>
+  <line x1="197" y1="72" x2="197" y2="94" class="arr" stroke="#0F6E56" marker-end="url(#arrow)"/>
+
+  <!-- ADF group: boxes 4-5 (Manual, Product metrics) -->
+  <line x1="453" y1="58" x2="453" y2="72" stroke="#b4b2a9" stroke-width="0.5"/>
+  <line x1="596" y1="58" x2="596" y2="72" stroke="#b4b2a9" stroke-width="0.5"/>
+  <line x1="453" y1="72" x2="596" y2="72" stroke="#b4b2a9" stroke-width="0.5"/>
+  <text class="ts" x="536" y="84" text-anchor="start" style="fill:#633806;font-weight:600">ADF</text>
+  <path d="M524,72 L524,104 L478,104" fill="none" stroke="#BA7517" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- RAW LAYER -->
+  <rect x="10" y="96" width="470" height="106" rx="8" fill="none" stroke="#b4b2a9" stroke-width="1" stroke-dasharray="5 3"/>
+  <text class="ts" x="22" y="111" style="font-weight:600;fill:#5f5e5a">raw layer · ADLS Gen2</text>
+
+  <g class="node c-amber" data-id="raw-validation">
+    <rect x="25"  y="118" width="205" height="68" rx="6" stroke-width="0.5"/>
+    <text class="th" x="127" y="138" text-anchor="middle" dominant-baseline="central">DLT: Format validation</text>
+    <text class="ts" x="127" y="157" text-anchor="middle" dominant-baseline="central">columns, types, amounts</text>
+    <text class="ts" x="127" y="174" text-anchor="middle" dominant-baseline="central">file metadata registry</text>
+  </g>
+  <g class="node c-gray" data-id="raw-registry">
+    <rect x="244" y="118" width="220" height="68" rx="6" stroke-width="0.5"/>
+    <text class="th" x="354" y="138" text-anchor="middle" dominant-baseline="central">Raw file registry</text>
+    <text class="ts" x="354" y="157" text-anchor="middle" dominant-baseline="central">path, size, timestamp</text>
+    <text class="ts" x="354" y="174" text-anchor="middle" dominant-baseline="central">QC status / errors</text>
+  </g>
+
+  <!-- FAIL arrow + email alert -->
+  <text class="ts" x="510" y="109" text-anchor="middle" style="fill:#993C1D">validation fail</text>
+  <line x1="464" y1="152" x2="488" y2="152" class="arr" stroke="#993C1D" marker-end="url(#arrow)"/>
+  <g class="node c-coral" data-id="alert-email">
+    <rect x="490" y="118" width="178" height="68" rx="6" stroke-width="0.5"/>
+    <text class="th" x="579" y="138" text-anchor="middle" dominant-baseline="central">Email alert</text>
+    <text class="ts" x="579" y="157" text-anchor="middle" dominant-baseline="central">Microsoft Graph API</text>
+    <text class="ts" x="579" y="174" text-anchor="middle" dominant-baseline="central">→ responsible person</text>
+  </g>
+
+  <!-- PASS -->
+  <text class="ts" x="268" y="213" text-anchor="middle" style="fill:#0F6E56">pass ↓</text>
+  <line x1="245" y1="202" x2="245" y2="222" class="arr" stroke="#0F6E56" marker-end="url(#arrow)"/>
+
+  <!-- LANDING LAYER -->
+  <rect x="10" y="224" width="470" height="162" rx="8" fill="none" stroke="#b4b2a9" stroke-width="1" stroke-dasharray="5 3"/>
+  <text class="ts" x="22" y="239" style="font-weight:600;fill:#5f5e5a">landing layer · MDM bridge matching</text>
+
+  <g class="node c-teal" data-id="mdm-product">
+    <rect x="25"  y="246" width="130" height="44" rx="6" stroke-width="0.5"/>
+    <text class="th" x="90"  y="261" text-anchor="middle" dominant-baseline="central">Product MDM</text>
+    <text class="ts" x="90"  y="279" text-anchor="middle" dominant-baseline="central">→ CRM SKU</text>
+  </g>
+  <g class="node c-teal" data-id="mdm-account">
+    <rect x="165" y="246" width="130" height="44" rx="6" stroke-width="0.5"/>
+    <text class="th" x="230" y="261" text-anchor="middle" dominant-baseline="central">Account MDM</text>
+    <text class="ts" x="230" y="279" text-anchor="middle" dominant-baseline="central">→ CRM account</text>
+  </g>
+  <g class="node c-teal" data-id="mdm-competitor">
+    <rect x="305" y="246" width="155" height="44" rx="6" stroke-width="0.5"/>
+    <text class="th" x="382" y="261" text-anchor="middle" dominant-baseline="central">Competitor MDM</text>
+    <text class="ts" x="382" y="279" text-anchor="middle" dominant-baseline="central">→ own dimension</text>
+  </g>
+  <g class="node c-purple" data-id="customer-dim-landing">
+    <rect x="25"  y="306" width="130" height="44" rx="6" stroke-width="0.5"/>
+    <text class="th" x="90"  y="321" text-anchor="middle" dominant-baseline="central">Customer dim</text>
+    <text class="ts" x="90"  y="339" text-anchor="middle" dominant-baseline="central">ADLS folder → key</text>
+  </g>
+  <g class="node c-gray" data-id="quarantine">
+    <rect x="165" y="306" width="295" height="44" rx="6" stroke-width="0.5"/>
+    <text class="th" x="312" y="321" text-anchor="middle" dominant-baseline="central">Quarantine: unmapped values</text>
+    <text class="ts" x="312" y="339" text-anchor="middle" dominant-baseline="central">3 tables: product · account · competitor</text>
+  </g>
+
+  <!-- Unmapped → Bridge -->
+  <line x1="460" y1="328" x2="488" y2="328" class="arr" stroke="#BA7517" marker-end="url(#arrow)"/>
+  <text class="ts" x="510" y="240" text-anchor="middle" style="fill:#BA7517">unmapped values</text>
+  <g class="node c-amber" data-id="bridge-excel">
+    <rect x="490" y="246" width="178" height="44" rx="6" stroke-width="0.5"/>
+    <text class="th" x="579" y="261" text-anchor="middle" dominant-baseline="central">Bridge Excel</text>
+    <text class="ts" x="579" y="279" text-anchor="middle" dominant-baseline="central">Product + Account + Comp.</text>
+  </g>
+  <g class="node c-gray" data-id="biz-user">
+    <rect x="490" y="300" width="178" height="50" rx="6" stroke-width="0.5"/>
+    <text class="th" x="579" y="318" text-anchor="middle" dominant-baseline="central">Business user</text>
+    <text class="ts" x="579" y="337" text-anchor="middle" dominant-baseline="central">fills CRM dropdowns</text>
+    <text class="ts" x="579" y="352" text-anchor="middle" dominant-baseline="central">uploads xlsx → ADLS</text>
+  </g>
+
+  <line x1="245" y1="386" x2="245" y2="406" class="arr" stroke="#0F6E56" marker-end="url(#arrow)"/>
+
+  <!-- CLEANED LAYER -->
+  <rect x="10" y="408" width="470" height="122" rx="8" fill="none" stroke="#b4b2a9" stroke-width="1" stroke-dasharray="5 3"/>
+  <text class="ts" x="22" y="423" style="font-weight:600;fill:#5f5e5a">cleaned layer · DLT pipelines</text>
+
+  <g class="node c-gray" data-id="fk-resolution">
+    <rect x="25"  y="430" width="205" height="82" rx="6" stroke-width="0.5"/>
+    <text class="th" x="127" y="452" text-anchor="middle" dominant-baseline="central">FK resolution</text>
+    <text class="ts" x="127" y="472" text-anchor="middle" dominant-baseline="central">ACCOUNT_KEY</text>
+    <text class="ts" x="127" y="490" text-anchor="middle" dominant-baseline="central">PRODUCT_KEY</text>
+    <text class="ts" x="127" y="506" text-anchor="middle" dominant-baseline="central">CUSTOMER_KEY</text>
+  </g>
+  <g class="node c-purple" data-id="scd2">
+    <rect x="244" y="430" width="220" height="82" rx="6" stroke-width="0.5"/>
+    <text class="th" x="354" y="452" text-anchor="middle" dominant-baseline="central">SCD2 — CRM history</text>
+    <text class="ts" x="354" y="472" text-anchor="middle" dominant-baseline="central">snapshot on change</text>
+    <text class="ts" x="354" y="490" text-anchor="middle" dominant-baseline="central">valid_from / valid_to</text>
+    <text class="ts" x="354" y="506" text-anchor="middle" dominant-baseline="central">IS_CURRENT filter → curated</text>
+  </g>
+
+  <line x1="245" y1="530" x2="245" y2="548" class="arr" stroke="#0F6E56" marker-end="url(#arrow)"/>
+
+  <!-- CURATED LAYER -->
+  <rect x="10" y="550" width="470" height="152" rx="8" fill="none" stroke="#b4b2a9" stroke-width="1" stroke-dasharray="5 3"/>
+  <text class="ts" x="22" y="565" style="font-weight:600;fill:#5f5e5a">curated layer · Unity Catalog · Delta</text>
+
+  <g class="node c-blue" data-id="sales-facts">
+    <rect x="25"  y="572" width="135" height="56" rx="6" stroke-width="0.5"/>
+    <text class="th" x="92"  y="591" text-anchor="middle" dominant-baseline="central">SALES_FACTS</text>
+    <text class="ts" x="92"  y="611" text-anchor="middle" dominant-baseline="central">unified all sources</text>
+  </g>
+  <g class="node c-purple" data-id="product-dim">
+    <rect x="168" y="572" width="130" height="56" rx="6" stroke-width="0.5"/>
+    <text class="th" x="233" y="591" text-anchor="middle" dominant-baseline="central">Product dim</text>
+    <text class="ts" x="233" y="611" text-anchor="middle" dominant-baseline="central">own + competitor</text>
+  </g>
+  <g class="node c-purple" data-id="account-dim">
+    <rect x="306" y="572" width="155" height="56" rx="6" stroke-width="0.5"/>
+    <text class="th" x="383" y="591" text-anchor="middle" dominant-baseline="central">Account dim</text>
+    <text class="ts" x="383" y="611" text-anchor="middle" dominant-baseline="central">CRM · IS_CURRENT</text>
+  </g>
+
+  <g class="node c-teal" data-id="customer-dim-curated">
+    <rect x="25"  y="638" width="130" height="44" rx="6" stroke-width="0.5"/>
+    <text class="th" x="90"  y="653" text-anchor="middle" dominant-baseline="central">Customer dim</text>
+    <text class="ts" x="90"  y="671" text-anchor="middle" dominant-baseline="central">ADLS folder key</text>
+  </g>
+  <g class="node c-teal" data-id="competitor-dim">
+    <rect x="163" y="638" width="145" height="44" rx="6" stroke-width="0.5"/>
+    <text class="th" x="235" y="653" text-anchor="middle" dominant-baseline="central">Competitor dim</text>
+    <text class="ts" x="235" y="671" text-anchor="middle" dominant-baseline="central">manually curated</text>
+  </g>
+  <g class="node c-amber" data-id="manual-facts">
+    <rect x="316" y="638" width="145" height="44" rx="6" stroke-width="0.5"/>
+    <text class="th" x="388" y="653" text-anchor="middle" dominant-baseline="central">Manual facts</text>
+    <text class="ts" x="388" y="671" text-anchor="middle" dominant-baseline="central">Stock · Plan · Spend</text>
+  </g>
+
+  <line x1="245" y1="702" x2="245" y2="720" class="arr" marker-end="url(#arrow)"/>
+
+  <!-- SERVING -->
+  <g class="node c-teal" data-id="sql-warehouse">
+    <rect x="70" y="722" width="350" height="44" rx="8" stroke-width="0.5"/>
+    <text class="th" x="245" y="737" text-anchor="middle" dominant-baseline="central">Databricks SQL Warehouse</text>
+    <text class="ts" x="245" y="755" text-anchor="middle" dominant-baseline="central">serverless · Unity Catalog</text>
+  </g>
+
+  <line x1="245" y1="766" x2="245" y2="782" class="arr" marker-end="url(#arrow)"/>
+
+  <!-- POWERBI -->
+  <g class="node c-blue" data-id="powerbi">
+    <rect x="130" y="784" width="230" height="44" rx="8" stroke-width="0.5"/>
+    <text class="th" x="245" y="799" text-anchor="middle" dominant-baseline="central">PowerBI</text>
+    <text class="ts" x="245" y="817" text-anchor="middle" dominant-baseline="central">semantic model</text>
+  </g>
+
+  <!-- Infra notes -->
+  <rect x="490" y="404" width="178" height="44" rx="6" fill="none" stroke="#d3d1c7" stroke-width="0.5" stroke-dasharray="3 2"/>
+  <text class="ts" x="579" y="422" text-anchor="middle" dominant-baseline="central" style="fill:#888">Key Vault + SPN auth</text>
+  <text class="ts" x="579" y="438" text-anchor="middle" dominant-baseline="central" style="fill:#888">brickSpn (all layers)</text>
+  <rect x="490" y="456" width="178" height="44" rx="6" fill="none" stroke="#d3d1c7" stroke-width="0.5" stroke-dasharray="3 2"/>
+  <text class="ts" x="579" y="474" text-anchor="middle" dominant-baseline="central" style="fill:#888">DevOps CI/CD</text>
+  <text class="ts" x="579" y="490" text-anchor="middle" dominant-baseline="central" style="fill:#888">dev → QA → PRD</text>
+
+  </svg>
+  </div>
+
+  <!-- ── DETAIL PANEL ── -->
+  <div class="detail-panel hidden" id="detail-panel">
+    <div class="detail-header">
+      <h2 id="detail-title">Component</h2>
+      <span class="detail-tag" id="detail-tag">layer</span>
+      <button class="close-btn" onclick="closePanel()">✕</button>
+    </div>
+    <div class="detail-body" id="detail-body"></div>
+  </div>
+
+  <div class="detail-panel" id="empty-panel" style="display:flex">
+    <div class="empty-state">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <rect x="4" y="4" width="10" height="10" rx="2" fill="#888"/>
+        <rect x="18" y="4" width="10" height="10" rx="2" fill="#888"/>
+        <rect x="4" y="18" width="10" height="10" rx="2" fill="#888"/>
+        <rect x="18" y="18" width="10" height="10" rx="2" fill="#888"/>
+      </svg>
+      <p>Click any component<br>in the diagram to see details</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const details = {
+  "src-customer": {
+    title: "Customer files (xlsx / csv)",
+    tag: "source", tagClass: "tag-source",
+    body: `
+      <h3>Description</h3>
+      <p>External customer POS (Point of Sale) data delivered as Excel or CSV files. Each customer is a separate data provider with their own file format and naming convention.</p>
+      <h3>ADLS path pattern</h3>
+      <div class="code-block">raw/ms/sl/dp/customer/{CUSTOMER}/
+  {YYYY}/{MM}/
+    data_file.xlsx
+    READY.trigger</div>
+      <h3>Ingestion: DLT Auto Loader</h3>
+      <p>DLT reads files using <strong>Auto Loader</strong> (<code>cloudFiles</code> format). Auto Loader continuously monitors the ADLS path and picks up new files automatically — no trigger file, no VBA macro, no ADF pipeline needed for this source.</p>
+      <div class="code-block">@dlt.table(name="raw_customer_tesco")
+def raw_customer_tesco():
+    return (spark.readStream
+        .format("cloudFiles")
+        .option("cloudFiles.format", "binaryFile")
+        .option("cloudFiles.schemaLocation", schema_path)
+        .load("raw/ms/sl/dp/customer/Tesco/")
+        .withColumn("CUSTOMER_KEY", lit("Tesco"))
+        .withColumn("_source_file",
+            input_file_name())
+    )</div>
+      <h3>How the customer delivers data</h3>
+      <p>The customer uploads the xlsx/csv directly to the ADLS path (via Azure Storage Explorer, SFTP, or any upload method they have). As soon as the file appears, Auto Loader detects it and the DLT pipeline processes it. No READY.trigger file needed.</p>
+      <div class="hint">Auto Loader handles atomic file detection natively — it only processes a file once the upload is complete, so partial uploads are not a risk.</div>
+      <h3>Key columns</h3>
+      <div class="pill-row">
+        <span class="pill">source_product_name</span>
+        <span class="pill">source_account_name</span>
+        <span class="pill">qty / SOLD_COUNT</span>
+        <span class="pill">sale_date</span>
+      </div>
+      <h3>Customer dimension</h3>
+      <p>Each ADLS folder name becomes a <strong>CUSTOMER_KEY</strong>. No lookup needed — the key is derived directly from the folder path via <code>regexp_extract(input_file_name())</code>.</p>
+      <div class="hint">One customer = one folder = one CUSTOMER_KEY. Adding a new customer requires only a new folder — no schema change.</div>
+    `
+  },
+  "src-crm": {
+    title: "CRM views (Azure Synapse)",
+    tag: "source", tagClass: "tag-source",
+    body: `
+      <h3>Description</h3>
+      <p>CRM master data exposed as views in Azure Synapse Analytics. ~24 views confirmed to have real data. This is the authoritative source for Account and Product dimensions.</p>
+      <h3>Ingestion: DLT with JDBC</h3>
+      <p>DLT reads directly from Synapse views via JDBC connector — no intermediate ADF copy step. The watermark is managed in the DLT pipeline itself.</p>
+      <div class="code-block">@dlt.table(name="raw_crm_accounts")
+def raw_crm_accounts():
+    last_wm = get_watermark("CRM_Accounts")
+    return (spark.read
+        .format("jdbc")
+        .option("url", synapse_jdbc_url)
+        .option("dbtable",
+          f"(SELECT * FROM dbo.v_Accounts
+             WHERE _TF_LAST_UPDATE > '{last_wm}'
+           ) t")
+        .option("user", dbutils.secrets.get(...))
+        .load()
+    )</div>
+      <h3>Watermark strategy</h3>
+      <p><code>_TF_LAST_UPDATE</code> is the standardized watermark column (~23 of 24 views). <code>Month_Dim</code> is full-load only. Watermarks stored as JSON in ADLS, updated by a post-pipeline notebook.</p>
+      <h3>SCD2</h3>
+      <p>CRM data gets SCD2 treatment in the cleaned layer to track what changed and when. Only IS_CURRENT=true rows surface in the curated Account dim.</p>
+      <div class="hint">Auth: brickSpn service principal. SQL auth acceptable only for temporary discovery.</div>
+    `
+  },
+  "src-opendata": {
+    title: "Open Data API — Slovak Statistics",
+    tag: "source", tagClass: "tag-source",
+    body: `
+      <h3>Description</h3>
+      <p>Public statistical data from the Slovak Statistics Office (Štatistický úrad SR). Delivered as CSV or XML via public REST API endpoints.</p>
+      <h3>Ingestion: DLT with HTTP / requests</h3>
+      <p>DLT uses a Python notebook task to fetch from the public API and write raw data to the raw Delta table. No ADF needed — the notebook is a task inside the Databricks Workflow.</p>
+      <div class="code-block">@dlt.table(name="raw_opendata_sk")
+def raw_opendata_sk():
+    import requests, io
+    resp = requests.get(
+        "https://data.statistics.sk/api/v2/..."
+        "?lang=en&type=csv")
+    df = spark.createDataFrame(
+        pd.read_csv(io.StringIO(resp.text)))
+    return df.withColumn("_load_ts",
+        current_timestamp())</div>
+      <h3>Use in curated layer</h3>
+      <p>OpenData feeds market context metrics into the curated layer — typically enriches the Product or Sales dimensions with category-level market data.</p>
+      <div class="warn">XML parsing from public APIs can be fragile. Build schema validation into the raw DLT step.</div>
+    `
+  },
+  "src-manual": {
+    title: "Manual xlsx inputs",
+    tag: "source", tagClass: "tag-source",
+    body: `
+      <h3>Description</h3>
+      <p>Business-user-managed Excel files covering operational planning data: Warehouse stock levels, Sales planning targets, Marketing spending.</p>
+      <h3>Ingestion: DLT Auto Loader</h3>
+      <p>Manual files use the same Auto Loader pattern as customer files — user drops the xlsx into the designated ADLS folder, DLT detects and processes it automatically. No ADF trigger needed.</p>
+      <div class="code-block">@dlt.table(name="raw_manual_stock")
+def raw_manual_stock():
+    return (spark.readStream
+        .format("cloudFiles")
+        .option("cloudFiles.format", "binaryFile")
+        .load("raw/ms/sl/dp/manual/stock/")
+    )</div>
+      <h3>Key difference from customer data</h3>
+      <p>Manual inputs reference CRM Account and Product keys directly (no MDM bridge needed if users are disciplined). They land in <strong>Manual facts</strong> tables in the curated layer, separate from SALES_FACTS.</p>
+      <div class="pill-row">
+        <span class="pill">warehouse_stock</span>
+        <span class="pill">sales_plan</span>
+        <span class="pill">spending</span>
+      </div>
+      <div class="hint">These always reference CRM Account or Product. Validate FK integrity at the validation step — reject if the referenced keys don't exist in the bridge.</div>
+    `
+  },
+  "src-metrics": {
+    title: "Product metrics",
+    tag: "source", tagClass: "tag-source",
+    body: `
+      <h3>Description</h3>
+      <p>Additional enrichment data about products — both own-brand and competitor. Maintained manually as an Excel input by the product team.</p>
+      <h3>Target</h3>
+      <p>Feeds directly into the <strong>Product dim</strong> in the curated layer, adding attributes not available from CRM (e.g. product category, launch date, packaging type).</p>
+      <h3>Ingestion: ADF (or Auto Loader)</h3>
+      <p>Product metrics can be ingested via ADF (Storage Event Trigger on xlsx upload) or via Auto Loader if consistent with the rest. VBA writing directly to a Delta table is technically possible via Databricks ODBC/JDBC but complex for a business user — uploading the file to ADLS and letting the pipeline pick it up is simpler and more reliable.</p>
+      <h3>New product notification flow</h3>
+      <p>When DLT ingests new CRM data and finds a <code>PRODUCT_KEY</code> that does not yet exist in <code>dim_product</code>, a post-pipeline notebook fires an email to the responsible business user with a pre-filled Excel containing the new product details. The user fills in additional metadata (category, packaging, etc.) and uploads it back — this feeds the Product dim enrichment step.</p>
+      <div class="code-block"># Post-pipeline notebook
+new_products = spark.sql("""
+    SELECT p.PRODUCT_KEY, p.product_name
+    FROM raw_crm_products p
+    LEFT JOIN dim_product d
+      ON p.PRODUCT_KEY = d.PRODUCT_KEY
+    WHERE d.PRODUCT_KEY IS NULL
+""")
+if new_products.count() > 0:
+    generate_and_send_excel(
+        data=new_products,
+        recipient="product.owner@company.com",
+        subject="New CRM products — please add metadata"
+    )</div>
+      <div class="hint">Same notification pattern applies for competitor products: new texts in quarantine_unmapped_competitor that have no Competitor dim record trigger a "please create this competitor product" email.</div>
+    `
+  },
+  "raw-validation": {
+    title: "DLT: Format validation",
+    tag: "raw", tagClass: "tag-raw",
+    body: `
+      <h3>What it checks</h3>
+      <ul>
+        <li>All expected columns are present</li>
+        <li>SOLD_COUNT / qty column is numeric (not text)</li>
+        <li>Sale date is a parseable date</li>
+        <li>No completely empty rows</li>
+        <li>File is not empty</li>
+      </ul>
+      <h3>DLT expectations pattern</h3>
+      <div class="code-block">@dlt.expect_or_fail(
+  "qty_is_numeric",
+  "qty RLIKE '^[0-9]+(\\.[0-9]+)?$'"
+)
+@dlt.expect_or_fail(
+  "required_columns_present",
+  "source_product_name IS NOT NULL"
+)</div>
+      <h3>On failure</h3>
+      <p>The pipeline raises a DLT quality error. A post-pipeline notebook detects the failed expectation and fires an email via Microsoft Graph API to the responsible person for that customer/source.</p>
+      <h3>Metadata registry</h3>
+      <p>Every file processed is registered in the raw metadata Delta table: path, file size, row count, QC status (PASSED / FAILED), error description.</p>
+      <div class="hint">Only PASSED files gate into the landing layer. The registry is the audit trail.</div>
+    `
+  },
+  "raw-registry": {
+    title: "Raw file registry",
+    tag: "raw", tagClass: "tag-raw",
+    body: `
+      <h3>Purpose</h3>
+      <p>A Delta table that tracks every file ingested into the raw layer. Provides full audit history and is the control gate for landing-layer ingestion.</p>
+      <h3>Schema</h3>
+      <div class="code-block">raw_file_registry (Delta)
+├── file_path       string
+├── file_name       string
+├── customer_key    string
+├── file_size_bytes long
+├── row_count       int
+├── ingested_at     timestamp
+├── qc_status       string  -- PASSED | FAILED
+├── qc_error        string  -- null if PASSED
+└── processed_at    timestamp</div>
+      <h3>Gate logic</h3>
+      <p>The landing-layer DLT pipeline reads only rows where <code>qc_status = 'PASSED'</code> and <code>processed_at IS NULL</code>, then marks them as processed after landing.</p>
+      <div class="hint">Raw file bytes stay in ADLS. The registry stores only metadata — binary files never go into Delta.</div>
+    `
+  },
+  "alert-email": {
+    title: "Email alert — Microsoft Graph API",
+    tag: "alert", tagClass: "tag-alert",
+    body: `
+      <h3>Trigger</h3>
+      <p>Fires when DLT format validation fails for a file — before any data enters the landing layer.</p>
+      <h3>Implementation</h3>
+      <p>A post-pipeline Databricks notebook calls the Microsoft Graph API <code>/users/{sender_upn}/sendMail</code> endpoint using SPN credentials stored in Key Vault.</p>
+      <div class="code-block">POST /v1.0/users/{sender}/sendMail
+Authorization: Bearer {aad_token}
+
+{
+  "message": {
+    "subject": "LDLP: File validation failed — Tesco",
+    "body": { "content": "File X failed: qty not numeric" },
+    "toRecipients": [{ "emailAddress": {
+      "address": "data.owner@company.com"
+    }}]
+  }
+}</div>
+      <h3>Why Graph API, not Logic Apps</h3>
+      <p>Logic Apps are unavailable in this LDLP deployment. Graph API via SPN is the approved alternative — credentials stored in Key Vault secret scope, accessed via <code>dbutils.secrets.get()</code>.</p>
+      <div class="warn">Logic Apps are listed as available in LDLP standard but not provisioned for this dataproject. Never use personal credentials for sending — always SPN.</div>
+    `
+  },
+  "mdm-product": {
+    title: "Product MDM — bridge_pos_sku",
+    tag: "landing", tagClass: "tag-landing",
+    body: `
+      <h3>Purpose</h3>
+      <p>Maps raw source product text (as written by the customer) to the canonical CRM SKU / PRODUCT_KEY.</p>
+      <h3>Bridge table schema</h3>
+      <div class="code-block">bridge_pos_sku (Delta)
+├── src_product_text   string  -- raw text from customer file
+├── customer_key       string  -- which customer this mapping is for
+├── PRODUCT_KEY        string  -- CRM canonical key
+├── product_name_crm   string  -- CRM display name
+├── mapped_by          string  -- who confirmed this mapping
+└── mapped_at          timestamp</div>
+      <h3>Unmapped flow</h3>
+      <p>Rows where <code>bridge_pos_sku</code> has no match land in <strong>quarantine_unmapped_product</strong>. A post-pipeline notebook generates the Bridge Excel and emails the product master data owner.</p>
+      <div class="hint">One mapping per (src_product_text, customer_key) pair. The same product text from Tesco and Kaufland might map to different SKUs.</div>
+    `
+  },
+  "mdm-account": {
+    title: "Account MDM — bridge_pos_account",
+    tag: "landing", tagClass: "tag-landing",
+    body: `
+      <h3>Purpose</h3>
+      <p>Maps raw source account/store names (as written by the customer) to the canonical CRM ACCOUNT_KEY.</p>
+      <h3>Bridge table schema</h3>
+      <div class="code-block">bridge_pos_account (Delta)
+├── src_account_text   string
+├── customer_key       string
+├── ACCOUNT_KEY        string  -- CRM canonical key
+├── account_name_crm   string
+├── mapped_by          string
+└── mapped_at          timestamp</div>
+      <h3>CRM dropdown validation</h3>
+      <p>The Bridge Excel sheet for Account mapping includes a dropdown column populated from CRM account values. Business users cannot type freeform — they must select an existing CRM account, preventing typos from entering the bridge table.</p>
+    `
+  },
+  "mdm-competitor": {
+    title: "Competitor MDM — bridge_competitor_products",
+    tag: "landing", tagClass: "tag-landing",
+    body: `
+      <h3>Purpose</h3>
+      <p>Maps raw competitor product text to your own internal <strong>Competitor dim</strong> — not to CRM. The Competitor dim is maintained by hand (not sourced from any system).</p>
+      <h3>Bridge table schema</h3>
+      <div class="code-block">bridge_competitor_products (Delta)
+├── src_competitor_text       string
+├── customer_key              string
+├── COMPETITOR_PRODUCT_KEY    string
+├── competitor_name           string
+├── brand                     string
+├── mapped_by                 string
+└── mapped_at                 timestamp</div>
+      <h3>New competitor products</h3>
+      <p>If a competitor product doesn't exist in Competitor dim yet, the business user needs to create it first. Consider a dedicated "New competitor product" sheet in the Bridge Excel — though parallel processing across multiple sources needs careful coordination to avoid duplicate key creation.</p>
+      <div class="warn">Parallel uploads from multiple customers can race when creating new competitor products. Enforce MERGE INTO semantics on the Delta table, not INSERT.</div>
+    `
+  },
+  "customer-dim-landing": {
+    title: "Customer dimension (landing)",
+    tag: "landing", tagClass: "tag-landing",
+    body: `
+      <h3>Key insight</h3>
+      <p>CUSTOMER_KEY is derived from the ADLS folder name — no lookup table needed. The folder structure <em>is</em> the customer registry.</p>
+      <div class="code-block">-- Derive in DLT during ingestion:
+regexp_extract(input_file_name(),
+  '/customer/([^/]+)/\\d{4}', 1)
+-- /raw/ms/sl/dp/customer/Tesco/2024/...
+-- → CUSTOMER_KEY = 'Tesco'</div>
+      <h3>Customer dim table</h3>
+      <p>A simple Delta table is built from the registry of all known customer folders. Enriched with metadata like customer display name, country, active flag.</p>
+      <div class="code-block">dim_customer (Delta / curated)
+├── CUSTOMER_KEY    string  PK
+├── customer_name   string
+├── country         string
+├── active          boolean
+└── onboarded_at    date</div>
+    `
+  },
+  "quarantine": {
+    title: "Quarantine: unmapped values",
+    tag: "landing", tagClass: "tag-landing",
+    body: `
+      <h3>Three separate tables</h3>
+      <p>One quarantine table per MDM domain — separate stewardship, separate notification path.</p>
+      <div class="code-block">quarantine_unmapped_product
+├── source_product_name  string   -- raw text
+├── CUSTOMER_KEY         string
+├── _source_file         string
+└── _load_ts             timestamp
+
+quarantine_unmapped_account
+├── source_account_name  string
+├── CUSTOMER_KEY         string
+├── _source_file         string
+└── _load_ts             timestamp
+
+quarantine_unmapped_competitor
+├── source_product_name  string
+├── CUSTOMER_KEY         string
+├── _source_file         string
+└── _load_ts             timestamp</div>
+      <h3>Pattern</h3>
+      <p>Each table uses <code>.distinct()</code> — one row per unique unmapped value, not one row per transaction. The steward needs to know <em>what</em> to map, not how many times it appeared.</p>
+      <div class="hint">Rows in quarantine tables are never deleted — only resolved by adding the mapping to the corresponding bridge table. On next pipeline run, resolved rows no longer appear as unmapped.</div>
+    `
+  },
+  "bridge-excel": {
+    title: "Bridge Excel — 3-sheet mapping file",
+    tag: "mdm", tagClass: "tag-mdm",
+    body: `
+      <h3>Structure</h3>
+      <p>One Excel file with three sheets, one per MDM domain. Generated by a post-pipeline Databricks notebook.</p>
+      <div class="pill-row">
+        <span class="pill">Sheet 1: Product mapping</span>
+        <span class="pill">Sheet 2: Account mapping</span>
+        <span class="pill">Sheet 3: Competitor mapping</span>
+      </div>
+      <h3>Each sheet contains</h3>
+      <ul>
+        <li>Column A: raw source text (pre-filled, read-only)</li>
+        <li>Column B: CUSTOMER_KEY (pre-filled)</li>
+        <li>Column C: display name (dropdown,must select)</li>
+        <li>Column D: CRM/Competitor key (auto-fills from C via VLOOKUP</li>
+      </ul>
+      <h3>Data quality control</h3>
+      <p>The dropdown in Column C is populated with valid CRM values — business users cannot type freeform. This prevents dirty data from re-entering the bridge tables.</p>
+      <div class="code-block"># Notebook generates the xlsx using openpyxl
+from openpyxl import Workbook
+from openpyxl.worksheet.datavalidation import DataValidation
+
+dv = DataValidation(type="list",
+  formula1='"SKU001,SKU002,SKU003"')
+ws.add_data_validation(dv)</div>
+    `
+  },
+  "biz-user": {
+    title: "Business user — bridge steward",
+    tag: "mdm", tagClass: "tag-mdm",
+    body: `
+      <h3>Workflow</h3>
+      <ul>
+        <li>Receives email with pre-populated Bridge Excel attached</li>
+        <li>Opens file, fills in CRM dropdown for each unmapped value</li>
+        <li>Saves and uploads xlsx back to the ADLS bridge drop zone</li>
+        <li>ADF Storage Event Trigger fires → bridge update notebook runs</li>
+        <li>Bridge table is updated with new mappings</li>
+        <li>Next pipeline run: previously unmapped rows now resolve correctly</li>
+      </ul>
+      <h3>Upload methods</h3>
+      <ul>
+        <li>Excel VBA macro → REST API (OAuth) → ADLS</li>
+        <li>Azure Storage Explorer (manual drag-drop)</li>
+        <li>Azure Portal upload</li>
+      </ul>
+      <div class="hint">The bridge notebook uses MERGE INTO semantics — uploading the same mapping twice is safe (idempotent).</div>
+    `
+  },
+  "fk-resolution": {
+    title: "FK resolution — cleaned layer",
+    tag: "cleaned", tagClass: "tag-cleaned",
+    body: `
+      <h3>What happens here</h3>
+      <p>Three LEFT JOINs from the landing sales rows against the bridge tables. Output is a row with all three surrogate keys resolved — or it goes to quarantine.</p>
+      <div class="code-block">sales
+  .join(bridge_pos_sku,
+    sales.source_product_name ==
+    bridge.src_product_text, "left")
+  .join(bridge_pos_account,
+    sales.source_account_name ==
+    bridge.src_account_text, "left")
+  .withColumn("CUSTOMER_KEY",
+    regexp_extract(input_file_name(),...))</div>
+      <h3>Output schema (unified)</h3>
+      <div class="code-block">CUSTOMER_KEY   string
+ACCOUNT_KEY    string
+PRODUCT_KEY    string
+SOLD_COUNT     decimal
+SALE_DATE      date
+is_competitor  boolean
+_source        string
+_load_ts       timestamp</div>
+      <h3>DLT quality gates</h3>
+      <div class="code-block">@dlt.expect_or_drop(
+  "account_resolved",
+  "ACCOUNT_KEY IS NOT NULL")
+@dlt.expect_or_drop(
+  "product_resolved",
+  "PRODUCT_KEY IS NOT NULL")</div>
+      <div class="hint">Dropped rows go to quarantine tables — not lost. On next run after bridge is updated, they resolve correctly.</div>
+    `
+  },
+  "scd2": {
+    title: "SCD2 — CRM history",
+    tag: "cleaned", tagClass: "tag-cleaned",
+    body: `
+      <h3>Purpose</h3>
+      <p>Track changes to CRM Account and Product records over time. See what the CRM said at any point in the past — crucial for historical sales analysis.</p>
+      <h3>SCD2 columns added</h3>
+      <div class="code-block">crm_accounts_scd2 (Delta)
+├── ACCOUNT_KEY      string   -- natural key from CRM
+├── account_name     string
+├── ...              (all CRM columns)
+├── valid_from       timestamp
+├── valid_to         timestamp  -- 9999-12-31 if current
+├── IS_CURRENT       boolean
+└── _hash            string   -- row hash for change detection</div>
+      <h3>Change detection logic</h3>
+      <div class="code-block">-- On each CRM incremental load:
+-- 1. Hash all non-key columns
+-- 2. Compare hash to last known hash
+-- 3. If changed: close old row (valid_to = now)
+--               insert new row (IS_CURRENT = true)
+-- 4. If unchanged: no action</div>
+      <h3>Curated layer</h3>
+      <p>The Account dim in curated selects only <code>WHERE IS_CURRENT = true</code>. Historical analysis queries the SCD2 table directly with a date filter on valid_from/valid_to.</p>
+    `
+  },
+  "sales-facts": {
+    title: "SALES_FACTS — unified fact table",
+    tag: "curated", tagClass: "tag-curated",
+    body: `
+      <h3>Purpose</h3>
+      <p>Single unified fact table containing all sales transactions from all sources. The primary target for the PowerBI semantic model.</p>
+      <h3>Schema</h3>
+      <div class="code-block">SALES_FACTS (Delta / curated)
+├── SALE_ID          string   -- surrogate key
+├── CUSTOMER_KEY     string   FK → dim_customer
+├── ACCOUNT_KEY      string   FK → dim_account
+├── PRODUCT_KEY      string   FK → dim_product
+├── SOLD_COUNT       decimal(18,4)
+├── SALE_DATE        date
+├── YEAR_MONTH       string   -- partition key YYYYMM
+├── is_competitor    boolean
+├── _source          string   -- 'Tesco','OpenData',...
+└── _load_ts         timestamp</div>
+      <h3>Partitioning</h3>
+      <p>Partition by <code>YEAR_MONTH</code> for efficient date-range queries from PowerBI. Z-ORDER by ACCOUNT_KEY for account-level slicing performance.</p>
+      <div class="hint">own-brand and competitor sales coexist in the same table — filter by is_competitor. This simplifies the semantic model: one measure for total sales, split by dimension.</div>
+    `
+  },
+  "product-dim": {
+    title: "Product dim",
+    tag: "curated", tagClass: "tag-curated",
+    body: `
+      <h3>Contents</h3>
+      <p>Combined dimension covering both own-brand CRM products and manually curated competitor products.</p>
+      <div class="code-block">dim_product (Delta / curated)
+├── PRODUCT_KEY       string   PK
+├── product_name      string
+├── brand             string
+├── category          string
+├── is_competitor     boolean
+├── crm_sku           string   -- null for competitor
+├── competitor_name   string   -- null for own brand
+├── -- from Prod. metrics (enrichment):
+├── launch_date       date
+├── packaging_type    string
+└── active            boolean</div>
+      <h3>Sources</h3>
+      <ul>
+        <li>Own products: from CRM views (via SCD2 → IS_CURRENT)</li>
+        <li>Competitor products: from Competitor dim (manually curated)</li>
+        <li>Enrichment: Product metrics xlsx merged on PRODUCT_KEY</li>
+      </ul>
+    `
+  },
+  "account-dim": {
+    title: "Account dim",
+    tag: "curated", tagClass: "tag-curated",
+    body: `
+      <h3>Contents</h3>
+      <p>CRM accounts — stores, chains, distributors. Built from the SCD2-versioned CRM data, selecting only the current valid version.</p>
+      <div class="code-block">dim_account (Delta / curated)
+├── ACCOUNT_KEY       string   PK
+├── account_name      string
+├── account_type      string
+├── region            string
+├── country           string
+├── active            boolean
+└── -- SCD2 fields (current version only):
+    valid_from        timestamp
+    IS_CURRENT        boolean  -- always true here</div>
+      <h3>Filter applied</h3>
+      <div class="code-block">SELECT * FROM crm_accounts_scd2
+WHERE IS_CURRENT = true</div>
+      <div class="hint">For historical "what was the account name in Q1 2023" queries, go directly to crm_accounts_scd2 with a date filter — not dim_account.</div>
+    `
+  },
+  "customer-dim-curated": {
+    title: "Customer dim",
+    tag: "curated", tagClass: "tag-curated",
+    body: `
+      <h3>Contents</h3>
+      <p>Registry of all customer data providers. CUSTOMER_KEY is the ADLS folder name. Enriched with metadata by the data engineering team.</p>
+      <div class="code-block">dim_customer (Delta / curated)
+├── CUSTOMER_KEY    string   PK
+├── customer_name   string
+├── country         string
+├── channel         string  -- 'retail','wholesale'
+├── active          boolean
+└── onboarded_at    date</div>
+      <h3>How it grows</h3>
+      <p>A new customer is onboarded by creating a new ADLS folder. The Customer dim is updated manually (or via a small maintenance notebook) to add the metadata row.</p>
+    `
+  },
+  "competitor-dim": {
+    title: "Competitor dim — manually curated",
+    tag: "curated", tagClass: "tag-curated",
+    body: `
+      <h3>Contents</h3>
+      <p>Internal registry of competitor products. Not sourced from any external system — maintained entirely by hand via a dedicated Excel input or a maintenance notebook.</p>
+      <div class="code-block">dim_competitor_product (Delta / curated)
+├── COMPETITOR_PRODUCT_KEY   string   PK
+├── competitor_name          string
+├── product_name             string
+├── brand                    string
+├── category                 string
+├── country_of_origin        string
+├── active                   boolean
+└── created_at               timestamp</div>
+      <h3>Adding new competitor products</h3>
+      <p>New entries must exist here BEFORE the Bridge Excel can map to them. The Bridge Excel "Competitor mapping" sheet references this table for its dropdown values.</p>
+      <h3>New competitor product notification</h3>
+      <p>When a new unmapped competitor text appears in <code>quarantine_unmapped_competitor</code> and has no match in this dimension, a post-pipeline notebook detects it and emails the responsible business user with a pre-filled Excel. The user fills in the competitor product metadata (name, brand, category) and uploads it — this creates the new Competitor dim record.</p>
+      <div class="code-block"># Post-pipeline: detect unmapped with no dim record
+new_comp = spark.sql("""
+    SELECT DISTINCT q.source_product_name
+    FROM quarantine_unmapped_competitor q
+    LEFT JOIN dim_competitor_product d
+      ON q.source_product_name = d.product_name
+    WHERE d.COMPETITOR_PRODUCT_KEY IS NULL
+""")
+if new_comp.count() > 0:
+    generate_and_send_excel(
+        data=new_comp,
+        sheet="New competitor products",
+        recipient="market.intel@company.com"
+    )</div>
+      <div class="warn">Parallel uploads from multiple customer files can race when creating new entries. Use MERGE INTO semantics — never plain INSERT.</div>
+    `
+  },
+  "manual-facts": {
+    title: "Manual facts — Stock, Plan, Spend",
+    tag: "curated", tagClass: "tag-curated",
+    body: `
+      <h3>Contents</h3>
+      <p>Separate fact tables for manually-managed operational data. Each references CRM Account or Product keys.</p>
+      <div class="pill-row">
+        <span class="pill">fact_warehouse_stock</span>
+        <span class="pill">fact_sales_plan</span>
+        <span class="pill">fact_spending</span>
+      </div>
+      <div class="code-block">fact_warehouse_stock
+├── ACCOUNT_KEY    string   FK → dim_account
+├── PRODUCT_KEY    string   FK → dim_product
+├── stock_qty      decimal
+├── report_date    date
+└── _source_file   string</div>
+      <h3>FK validation</h3>
+      <p>Because these reference CRM keys directly (no MDM bridge), the DLT validation step checks that referenced ACCOUNT_KEY and PRODUCT_KEY values exist in the dimension tables before accepting the file.</p>
+    `
+  },
+  "sql-warehouse": {
+    title: "Databricks SQL Warehouse — serving layer",
+    tag: "serving", tagClass: "tag-serving",
+    body: `
+      <h3>Role</h3>
+      <p>Exposes curated Delta tables as SQL-queryable virtual tables via Unity Catalog. PowerBI connects here using the Databricks connector or ODBC driver.</p>
+      <h3>Configuration</h3>
+      <div class="code-block">Type: Serverless SQL Warehouse
+Catalog: ms_sl_dp (Unity Catalog)
+Schemas:
+  ├── raw       (metadata registry)
+  ├── landing   (bridge tables, quarantine)
+  ├── cleaned   (SCD2, FK-resolved)
+  └── curated   (SALES_FACTS, dims)</div>
+      <h3>Access pattern</h3>
+      <p>PowerBI uses Import mode (recommended over DirectQuery). The semantic model defines measures and relationships on top of the curated schema.</p>
+      <div class="hint">LDLP standard: use Serverless SQL Warehouse for serving. No dedicated cluster needed — pay-per-query, scales to zero.</div>
+    `
+  },
+  "powerbi": {
+    title: "PowerBI — semantic model",
+    tag: "serving", tagClass: "tag-serving",
+    body: `
+      <h3>Connection</h3>
+      <p>Connects to Databricks SQL Warehouse via the native Databricks connector in PowerBI Desktop / Service.</p>
+      <h3>Recommended mode</h3>
+      <p><strong>Import mode</strong> — data is cached in PowerBI for fast performance. Refresh schedule driven by curated layer update cadence.</p>
+      <h3>Star schema in semantic model</h3>
+      <div class="code-block">SALES_FACTS
+  ↑ ACCOUNT_KEY  → dim_account
+  ↑ PRODUCT_KEY  → dim_product
+  ↑ CUSTOMER_KEY → dim_customer
+  ↑ SALE_DATE    → dim_date (auto)</div>
+      <h3>Key measures</h3>
+      <div class="pill-row">
+        <span class="pill">Total sold units</span>
+        <span class="pill">Own vs competitor split</span>
+        <span class="pill">Market share %</span>
+        <span class="pill">YoY growth</span>
+      </div>
+      <div class="hint">LDLP scope: PowerBI workspace and dataset management is out of scope for LDLP. The platform provides the SQL endpoint — PowerBI governance is handled by the business team.</div>
+    `
+  }
+};
+
+function openDetail(id) {
+  const d = details[id];
+  if (!d) return;
+
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('active'));
+  const node = document.querySelector(`[data-id="${id}"]`);
+  if (node) node.classList.add('active');
+
+  document.getElementById('detail-title').textContent = d.title;
+  const tag = document.getElementById('detail-tag');
+  tag.textContent = d.tag;
+  tag.className = 'detail-tag ' + d.tagClass;
+  document.getElementById('detail-body').innerHTML = d.body;
+
+  document.getElementById('empty-panel').style.display = 'none';
+  const panel = document.getElementById('detail-panel');
+  panel.classList.remove('hidden');
+}
+
+function closePanel() {
+  document.getElementById('detail-panel').classList.add('hidden');
+  document.getElementById('empty-panel').style.display = 'flex';
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('active'));
+}
+
+document.querySelectorAll('.node[data-id]').forEach(node => {
+  node.addEventListener('click', () => openDetail(node.dataset.id));
+});
+</script>
+</body>
+</html>
