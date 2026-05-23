@@ -1,0 +1,21 @@
+
+
+**Things that are well designed**
+
+The `SOURCE_DEFINITIONS` factory pattern is solid — adding a new vendor really is just config. The append-only raw layer with full history is correct per LDLP principles. The audit columns (`_date_key`, `_source_file_path`, `_load_timestamp`) are consistent across all sources which will make staging much easier. The watermark approach for CRM and opendata is clean.
+
+**Things worth discussing with your project leader**
+
+**One row per file vs one row per record** — you identified this yourself. The inconsistency between M+M (one row per record after explode/collect) and the xlsx/xls sources (one row per file) is worth resolving before you add more vendors. If future vendors also have large files the memory question will come up again. The explode-all approach is more consistent and queryable but means raw is no longer strictly "one atomic unit per file."
+
+**The Billa column names** — `Column1` through `Column7` in the raw table will make the staging layer confusing. If you can get the actual column names from Billa even informally, hardcoding them now is much better than mapping them later. The staging developer will thank you.
+
+**GGT header row 8** — worth documenting why rows 1-7 exist and what they contain. If GGT ever changes their file format slightly (moves metadata, adds a row) the pipeline will silently load wrong columns without any error.
+
+**customer_data_load glob filter** — `*.{xlsx,xls,xml}` may not be supported by all versions of Auto Loader's `pathGlobFilter`. If you ever see the registry table missing files from certain sources, this is the first thing to check. The safer alternative is running three separate streams unioned together, one per format.
+
+**The opendata watermark bootstrap** — we left it as always DROP + recreate on every run to fix the initial `DELTA_TABLE_NOT_FOUND` error. Once the pipeline has run successfully a few times you should change Step 1 back to `CREATE TABLE IF NOT EXISTS` so you don't lose watermark history on every run.
+
+**Documentation** — your notebooks have good inline comments but there's no single document explaining the overall flow from source to raw to staging. Given the LDLP wiki structure you already have, a one-page data flow document per source system (CRM, customer, opendata) would be very useful for onboarding the next developer. The documentation template in your project might be worth filling in now while the design is fresh.
+
+**Nothing is being done in a fundamentally wrong way** — the main thing I'd flag is the opendata watermark bootstrap issue since that's a live risk. Everything else is more about consistency and future-proofing.
