@@ -1,0 +1,17 @@
+﻿DATASET,STATUS,Filter count,Title,Unpopulated link,Filters,,,,
+kz1012rs,OK,3,Daily smokers of cigarettes by sex and selected age groups,https://data.statistics.sk/api/v2/dataset/kz1012rs/kz1012rs_rok/kz1012rs_pohl/kz1012rs_vek?lang&type,,,,,
+nu2020qs,NOK,,Final consumption of households by Classification COICOP at current prices,,,,,,https://datacube.statistics.sk/#!/view/en/VBD_SLOVSTAT/nu2020qs/v_nu2020qs_00_00_00_en
+ob0006ms,OK,6,Food and beverage service activities (Turnover),https://data.statistics.sk/api/v2/dataset/ob0006ms/ob0006ms_year/ob0006ms_month/ob0006ms_specu/ob0006ms_nace2/ob0006ms_unit/ob0006ms_indic?lang&type,,,,,
+om7005rr,OK,4,"Indices of the Age Structure - SR-Area-Reg-District, U-R",https://data.statistics.sk/api/v2/dataset/om7005rr/om7005rr_vuc/om7005rr_obd/om7005rr_ukaz/om7005rr_poh?lang&type,,,,,
+om7015rr,OK,3,"Population Density - SR-Area-Reg-District, U-R",https://data.statistics.sk/api/v2/dataset/om7015rr/om7015rr_vuc/om7015rr_obd/om7015rr_ukaz?lang&type,,,,,
+om7102rr,OK,4,"Number of the Population by Sex - SR-Area-Reg-District, U-R (yearly)",https://data.statistics.sk/api/v2/dataset/om7102rr/om7102rr_vuc/om7102rr_obd/om7102rr_ukaz/om7102rr_poh?lang&type,,,,,
+pr3108rr,OK,4,Registered unemployment rate,https://data.statistics.sk/api/v2/dataset/pr3108rr/nuts14/pr3108rr_rok/pr3108rr_ukaz/pr3108rr_dim1?lang&type,,,,,
+ps2017rs,NOK,,Basic structure of gross money expenditures of private households by purpose and economical status of household head at work - yearly data,,,,,,https://datacube.statistics.sk/#!/view/en/VBD_SLOVSTAT/ps2017rs/v_ps2017rs_00_00_00_en
+ps3002rr,NOK,,Expenditures of households,,,,,,https://datacube.statistics.sk/#!/view/en/VBD_SK_WIN/ps3002rr/v_ps3002rr_00_00_00_en
+ps3803rr,OK,4,Total income of household - average income by regions,https://data.statistics.sk/api/v2/dataset/ps3803rr/nuts13/ps3803rr_rok/ps3803rr_ukaz1/ps3803rr_ukaz2?lang&type,,,,,
+ps3806rr,OK,4,Income per person - percentage of individual income components by regions,https://data.statistics.sk/api/v2/dataset/ps3806rr/nuts13/ps3806rr_rok/ps3806rr_ukaz1/ps3806rr_ukaz2?lang&type,,,,,
+ps3811rr,NOK,,At-risk-of-poverty rate or social exclusion by regions (to year 2020),,,,,,https://datacube.statistics.sk/#!/view/en/vbd_sk_win2/ps3811rr/v_ps3811rr_00_00_00_en
+ps3812rr,NOK,,Very low work intensity rate by region,,,,,,https://datacube.statistics.sk/#!/view/en/vbd_sk_win2/ps3812rr/v_ps3812rr_00_00_00_en
+ra1004rs,OK,4,Social statistics and health,https://data.statistics.sk/api/v2/dataset/ra1004rs/ra1004rs_rok/ra1004rs_ukaz/ra1004rs_poh/ra1004rs_obl?lang&type,,,,,
+sp0029ms,OK,4,Indices of consumer prices - detailed data - monthly,https://data.statistics.sk/api/v2/dataset/sp0029ms/sp0029ms_rok/sp0029ms_mes/sp0029ms_ukaz/sp0029ms_mj?lang&type,,,,,
+sp2043rs,OK,3,"Inflation measured by CPI (national methodology) - total, core, net - yearly",https://data.statistics.sk/api/v2/dataset/sp2043rs/sp2043rs_rok/sp2043rs_ukaz/sp2043rs_mj?lang&type,,,,,
